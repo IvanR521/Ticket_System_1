@@ -96,46 +96,54 @@ public:
 		fread(&Val,sizeof(T),1,Tdata);
 		return Val;
 	}
-	inline Key* get_key_leaf(_buffer _buf,int k)
+	inline char *get_key(_buffer _buf,int k)
 	{
-		return reinterpret_cast<Key*>(_buf+(sizeof(Key)+sizeof(off_t))*k);
+		return (_buf+(sizeof(Key)+sizeof(off_t))*k);
 	}
-	inline off_t* get_val(_buffer _buf,int k)
+	inline char *get_val(_buffer _buf,int k)
 	{
-		return reinterpret_cast<off_t*>(_buf+(sizeof(Key)+sizeof(off_t))*k+sizeof(Key));
+		return (_buf+(sizeof(Key)+sizeof(off_t))*k+sizeof(Key));
 	}
-	inline Key* get_key_nleaf(_buffer _buf,int k)
+	inline void load_key(_buffer _buf,int k,Key &key)
 	{
-		return reinterpret_cast<Key*>(_buf+(sizeof(Key)+sizeof(off_t))*k);
+		memcpy(reinterpret_cast<char*>(&key),get_key(_buf,k),sizeof(Key));
 	}
-	inline off_t* get_to(_buffer _buf,int k)
+	inline void save_key(_buffer _buf,int k,Key &key)
 	{
-		return reinterpret_cast<off_t*>(_buf+(sizeof(Key)+sizeof(off_t))*k+sizeof(Key));
+		memcpy(get_key(_buf,k),reinterpret_cast<char*>(&key),sizeof(Key));
+	}
+	inline void load_val(_buffer _buf,int k,off_t &Val)
+	{
+		memcpy(reinterpret_cast<char*>(&Val),get_val(_buf,k),sizeof(off_t));
+	}
+	inline void save_val(_buffer _buf,int k,off_t &Val)
+	{
+		memcpy(get_val(_buf,k),reinterpret_cast<char*>(&Val),sizeof(off_t));
 	}
 
 // INSERT------------------------------------------------------------------------------------------
 
 
-	size_t kth_leaf(_buffer _buf,node &p,const Key &key)
+	size_t kth_leaf(_buffer _buf,node &p,Key &key)
 	{
 		int l=0,r=p.cnt-1; size_t ans=p.cnt;
 		while(l<=r)
 		{
 			int mid=(l+r)>>1;
-			Key *k=get_key_leaf(_buf,mid);
-			if(!cmp(*k,key)) ans=mid,r=mid-1;
+			Key k; load_key(_buf,mid,k);
+			if(!cmp(k,key)) ans=mid,r=mid-1;
 			else l=mid+1;
 		}
 		return ans;
 	}
-	size_t kth_nleaf(_buffer _buf,node &p,const Key &key)
+	size_t kth_nleaf(_buffer _buf,node &p,Key &key)
 	{
 		int l=0,r=p.cnt-1; size_t ans=p.cnt;
 		while(l<=r)
 		{
 			int mid=(l+r)>>1;
-			Key *k=get_key_nleaf(_buf,mid);
-			if(!cmp(*k,key)) ans=mid,r=mid-1;
+			Key k; load_key(_buf,mid,k);
+			if(!cmp(k,key)) ans=mid,r=mid-1;
 			else l=mid+1;
 		}
 		return ans;
@@ -146,8 +154,8 @@ public:
 		node p2(get_pos(),1,p.self,p.nxt);
 		p.cnt=S1;
 		p2.cnt=S2;
-		p.key=*get_key_leaf(_buf,S1-1);
-		p2.key=*get_key_leaf(_buf,S1+S2-1);
+		load_key(_buf,S1-1,p.key);
+		load_key(_buf,S1+S2-1,p2.key);
 		p.nxt=p2.self;
 		if(p2.nxt==invalid_pos)
 		{
@@ -170,24 +178,24 @@ public:
 		node p2(get_pos(),0);
 		p.cnt=S1;
 		p2.cnt=S2;
-		p.key=*get_key_nleaf(_buf,S1-1);
-		p2.key=*get_key_nleaf(_buf,S1+S2-1);
+		load_key(_buf,S1-1,p.key);
+		load_key(_buf,S1+S2-1,p2.key);
 		SAVE_NODE(p);
 		SAVE_NLEAF_BUF(_buf,p);
 		SAVE_NODE(p2);
 		SAVE_NLEAF_BUF(_buf+(sizeof(Key)+sizeof(off_t))*S1,p2);
 		return p2;
 	}
-	node insert_leaf(_buffer _buf,node &p,const Key &key,const off_t &Val)
+	node insert_leaf(_buffer _buf,node &p,Key &key,off_t &Val)
 	{
 		size_t k=kth_leaf(_buf,p,key);
 		for(size_t i=p.cnt;i>k;i--)
 		{
-			*get_key_leaf(_buf,i)=*get_key_leaf(_buf,i-1);
-			*get_val(_buf,i)=*get_val(_buf,i-1);
+			memcpy(get_key(_buf,i),get_key(_buf,i-1),sizeof(Key));
+			memcpy(get_val(_buf,i),get_val(_buf,i-1),sizeof(off_t));
 		}
-		*get_key_leaf(_buf,k)=key;
-		*get_val(_buf,k)=Val;
+		save_key(_buf,k,key);
+		save_val(_buf,k,Val);
 		p.cnt++;
 		if(k==p.cnt-1) p.key=key;
 		if(p.cnt==entry)
@@ -201,15 +209,15 @@ public:
 			return p;
 		}
 	}
-	node insert_nleaf(_buffer _buf,node &p,const Key &key,const off_t &To,size_t k)
+	node insert_nleaf(_buffer _buf,node &p,Key &key,off_t &To,size_t k)
 	{
 		for(size_t i=p.cnt;i>k;i--)
 		{
-			*get_key_nleaf(_buf,i)=*get_key_nleaf(_buf,i-1);
-			*get_to(_buf,i)=*get_to(_buf,i-1);
+			memcpy(get_key(_buf,i),get_key(_buf,i-1),sizeof(Key));
+			memcpy(get_val(_buf,i),get_val(_buf,i-1),sizeof(off_t));
 		}
-		*get_key_nleaf(_buf,k)=key;
-		*get_to(_buf,k)=To;
+		save_key(_buf,k,key);
+		save_val(_buf,k,To);
 		p.cnt++;
 		if(k==p.cnt-1) p.key=key;
 		if(p.cnt==order)
@@ -223,7 +231,7 @@ public:
 			return p;
 		}
 	}
-	node dfs_insert(node &p,const Key &key,const off_t &Val)
+	node dfs_insert(node &p,Key &key,off_t &Val)
 	{
 		if(p.tp==1)
 		{
@@ -236,7 +244,8 @@ public:
 			LOAD_NLEAF_BUF(buf,p);
 			int k=kth_nleaf(buf,p,key);
 			if(k==p.cnt) k--;
-			off_t to0=*get_to(buf,k);
+			off_t to0;
+			load_val(buf,k,to0);
 			node t0=LOAD_NODE(to0);
 			node t1=dfs_insert(t0,key,Val);
 			if(t0.self==t1.self)
@@ -248,12 +257,12 @@ public:
 				return p;
 			}
 			else{
-				*get_key_nleaf(buf,k)=t0.key;
+				save_key(buf,k,t0.key);
 				return insert_nleaf(buf,p,t1.key,t1.self,k+1);
 			}
 		}
 	}
-	void final_insert(const Key &key,const off_t &Val)
+	void final_insert(Key &key,off_t &Val)
 	{
 		if(Root==invalid_pos)
 		{
@@ -274,10 +283,10 @@ public:
 				rt2.cnt=2;
 				SAVE_NODE(rt2);
 				buffer _buf;
-				*get_key_nleaf(_buf,0)=root.key;
-				*get_to(_buf,0)=root.self;
-				*get_key_nleaf(_buf,1)=p.key;
-				*get_to(_buf,1)=p.self;
+				save_key(_buf,0,root.key);
+				save_val(_buf,0,root.self);
+				save_key(_buf,1,p.key);
+				save_val(_buf,1,p.self);
 				SAVE_NLEAF_BUF(_buf,rt2);
 			}
 		}
@@ -287,11 +296,11 @@ public:
 
 	void leaf_erase(_buffer _buf,node &p,size_t k)
 	{
-		if(k==p.cnt-1) p.key=*get_key_leaf(_buf,p.cnt-2);
+		if(k==p.cnt-1) load_key(_buf,p.cnt-2,p.key);
 		for(int i=k;i<p.cnt;i++)
 		{
-			*get_key_leaf(_buf,i)=*get_key_leaf(_buf,i+1);
-			*get_val(_buf,i)=*get_val(_buf,i+1);
+			memcpy(get_key(_buf,i),get_key(_buf,i+1),sizeof(Key));
+			memcpy(get_val(_buf,i),get_val(_buf,i+1),sizeof(off_t));
 		}
 		p.cnt--;
 		SAVE_NODE(p);
@@ -342,7 +351,7 @@ public:
 			fwrite(_buf,(sizeof(Key)+sizeof(off_t))*(p.cnt-1),1,file);
 			fflush(file);
 			left.cnt--;
-			left.key=*get_key_leaf(lbuf,left.cnt-1);
+			load_key(lbuf,left.cnt-1,left.key);
 			SAVE_NODE(left);
 			return -1;
 		}
@@ -358,7 +367,7 @@ public:
 			p.cnt++;
 			buffer rbuf;
 			LOAD_LEAF_BUF(rbuf,right);
-			p.key=*get_key_leaf(rbuf,0);
+			load_key(rbuf,0,p.key);
 			fseek(file,p.self,SEEK_SET);
 			fwrite(&p,sizeof(node),1,file);
 			fseek(file,p.self+sizeof(node)+(sizeof(Key)+sizeof(off_t))*(p.cnt-1),SEEK_SET);
@@ -387,7 +396,7 @@ public:
 			fwrite(_buf,(sizeof(Key)+sizeof(off_t))*(p.cnt-1),1,file);
 			fflush(file);
 			left.cnt--;
-			left.key=*get_key_nleaf(lbuf,left.cnt-1);
+			load_key(lbuf,left.cnt-1,left.key);
 			SAVE_NODE(left);
 			return -1;
 		}
@@ -403,7 +412,7 @@ public:
 			p.cnt++;
 			buffer rbuf;
 			LOAD_NLEAF_BUF(rbuf,right);
-			p.key=*get_key_nleaf(rbuf,0);
+			load_key(rbuf,0,p.key);
 			fseek(file,p.self,SEEK_SET);
 			fwrite(&p,sizeof(node),1,file);
 			fseek(file,p.self+sizeof(node)+(sizeof(Key)+sizeof(off_t))*(p.cnt-1),SEEK_SET);
@@ -419,13 +428,14 @@ public:
 			return 2;
 		}
 	}
-	int dfs_erase(node &p,const Key &key,off_t left,off_t right)
+	int dfs_erase(node &p,Key &key,off_t left,off_t right)
 	{
 		if(p.tp==1)
 		{
 			buffer _buf; LOAD_LEAF_BUF(_buf,p);
 			size_t k=kth_leaf(_buf,p,key);
-			if(!EQUAL(*get_key_leaf(_buf,k),key)) return -5;
+			Key k2; load_key(_buf,k,k2);
+			if(!EQUAL(k2,key)) return -5;
 			leaf_erase(_buf,p,k);
 			if(!p.cnt&&p.self==Root)
 			{
@@ -452,9 +462,10 @@ public:
 		else{
 			buffer _buf; LOAD_NLEAF_BUF(_buf,p);
 			size_t k=kth_nleaf(_buf,p,key);
-			off_t to0=*get_to(_buf,k);
-			off_t to1=(k==0?invalid_pos:*get_to(_buf,k-1)),
-			to2=(k==p.cnt-1?invalid_pos:*get_to(_buf,k+1));
+			off_t to0,to1=invalid_pos,to2=invalid_pos;
+			load_val(_buf,k,to0);
+			if(k!=0) load_val(_buf,k-1,to1);
+			if(k!=p.cnt-1) load_val(_buf,k+1,to2);
 			node t0=LOAD_NODE(to0);
 			int flag=dfs_erase(t0,key,to1,to2);
 			if(flag==-5) return -5;
@@ -517,7 +528,7 @@ public:
 			LOAD_NLEAF_BUF(_buf,p);
 			if(p.self==Root&&p.cnt==1)
 			{
-				Root=*get_to(_buf,0);
+				load_val(_buf,0,Root);
 				return 0;
 			}
 			if(p.cnt>=order/2||p.self==Root) return 0;
@@ -538,7 +549,7 @@ public:
 			}
 		}
 	}
-	void final_erase(const Key &key)
+	void final_erase(Key key)
 	{
 		if(Root==invalid_pos) return;
 		node root=LOAD_NODE(Root);
@@ -651,152 +662,105 @@ public:
 	{
 		return Head==invalid_pos;
 	}
-	off_t insert(const Key &key,const T &Val)
+	off_t insert(Key key,T Val)
 	{
-		final_insert(key,(off_t(sz))*(off_t(sizeof(T))));
-		SAVE_T((off_t(sz))*(off_t(sizeof(T))),Val);
+		off_t Pos=(off_t(sz))*(off_t(sizeof(T)));
+		final_insert(key,Pos);
+		SAVE_T(Pos,Val);
 		sz++;
-		return (off_t(sz-1))*(off_t(sizeof(T)));
+		return Pos;
 	}
-	void erase(const Key &key)
+	void erase(Key key)
 	{
 		final_erase(key);
 	}
-	bool exist(const Key &key)
+	bool exist(Key key)
 	{
 		if(Root==invalid_pos) return false;
 		node p=LOAD_NODE(Root);
 		if(cmp(p.key,key)) return false;
+		Key k2;
+		off_t To;
 		buffer _buf; int k;
 		while(!p.tp)
 		{
 			LOAD_NLEAF_BUF(_buf,p);
 			k=kth_nleaf(_buf,p,key);
-			p=LOAD_NODE(*get_to(_buf,k));
+			load_val(_buf,k,To);
+			p=LOAD_NODE(To);
 		}
 		LOAD_LEAF_BUF(_buf,p);
 		k=kth_leaf(_buf,p,key);
-		return EQUAL(*get_key_leaf(_buf,k),key);
+		load_key(_buf,k,k2);
+		return EQUAL(k2,key);
 	}
-	T find(const Key &key)
+	T find(Key key)
 	{
 		if(Root==invalid_pos) return T();
 		node p=LOAD_NODE(Root);
 		if(cmp(p.key,key)) return T();
+		Key k2;
+		off_t To;
 		buffer _buf; int k;
 		while(!p.tp)
 		{
 			LOAD_NLEAF_BUF(_buf,p);
 			k=kth_nleaf(_buf,p,key);
-			p=LOAD_NODE(*get_to(_buf,k));
+			load_val(_buf,k,To);
+			p=LOAD_NODE(To);
 		}
 		LOAD_LEAF_BUF(_buf,p);
 		k=kth_leaf(_buf,p,key);
-		if(EQUAL(*get_key_leaf(_buf,k),key)) return LOAD_T(*get_val(_buf,k));
+		load_key(_buf,k,k2);
+		if(EQUAL(k2,key))
+		{
+			load_val(_buf,k,To);
+			return LOAD_T(To);
+		}
 		else return T();
 	}
-	off_t find2(const Key &key)
-	{
-		if(Root==invalid_pos) return invalid_pos;
-		node p=LOAD_NODE(Root);
-		if(cmp(p.key,key)) return invalid_pos;
-		buffer _buf; int k;
-		while(!p.tp)
-		{
-			LOAD_NLEAF_BUF(_buf,p);
-			k=kth_nleaf(_buf,p,key);
-			p=LOAD_NODE(*get_to(_buf,k));
-		}
-		LOAD_LEAF_BUF(_buf,p);
-		k=kth_leaf(_buf,p,key);
-		if(EQUAL(*get_key_leaf(_buf,k),key)) return *get_val(_buf,k);
-		else return invalid_pos;
-	}
-	bool change(const Key &key,T Val)
+	bool change(Key key,T Val)
 	{
 		if(Root==invalid_pos) return false;
 		node p=LOAD_NODE(Root);
 		if(cmp(p.key,key)) return false;
+		Key k2;
+		off_t To;
 		buffer _buf; int k;
 		while(!p.tp)
 		{
 			LOAD_NLEAF_BUF(_buf,p);
 			k=kth_nleaf(_buf,p,key);
-			p=LOAD_NODE(*get_to(_buf,k));
+			load_val(_buf,k,To);
+			p=LOAD_NODE(To);
 		}
 		LOAD_LEAF_BUF(_buf,p);
 		k=kth_leaf(_buf,p,key);
-		bool flag=EQUAL(*get_key_leaf(_buf,k),key);
+		load_key(_buf,k,k2);
+		bool flag=EQUAL(k2,key);
 		if(flag)
 		{
-			SAVE_T(*get_val(_buf,k),Val);
+			load_val(_buf,k,To);
+			SAVE_T(To,Val);
 			return true;
 		}
 		else return false;
-	}
-	void traverse(vector<std::pair<Key,T> >&vec,const Key l,const Key r)
-	{
-		if(Root==invalid_pos) return;
-		node p=LOAD_NODE(Root);
-		if(cmp(p.key,l)) return;
-		buffer _buf; int k;
-		while(!p.tp)
-		{
-			LOAD_NLEAF_BUF(_buf,p);
-			k=kth_nleaf(_buf,p,l);
-			p=LOAD_NODE(*get_to(_buf,k));
-		}
-		while(1)
-		{
-			LOAD_LEAF_BUF(_buf,p);
-			if(!cmp(r,p.key))
-			{
-				if(!cmp(*get_key_leaf(_buf,0),l))
-				{
-					for(int i=0;i<p.cnt;i++)
-						vec.push_back(std::pair<Key,T>(*get_key_leaf(_buf,i),LOAD_T(*get_val(_buf,i))));
-				}
-				else{
-					int i=0;
-					while(cmp(*get_key_leaf(_buf,i),l)) i++;
-					for(;i<p.cnt;i++)
-						vec.push_back(std::pair<Key,T>(*get_key_leaf(_buf,i),LOAD_T(*get_val(_buf,i))));
-				}
-				if(p.nxt==invalid_pos) return;
-				p=LOAD_NODE(p.nxt);
-			}
-			else{
-				if(!cmp(*get_key_leaf(_buf,0),l))
-				{
-					for(int i=0;i<p.cnt;i++)
-					{
-						if(cmp(r,*get_key_leaf(_buf,i))) break;
-						vec.push_back(std::pair<Key,T>(*get_key_leaf(_buf,i),LOAD_T(*get_val(_buf,i))));
-					}
-				}
-				else{
-					int i=0;
-					while(cmp(*get_key_leaf(_buf,i),l)) i++;
-					for(;i<p.cnt;i++)
-					{
-						if(cmp(r,*get_key_leaf(_buf,i))) break;
-						vec.push_back(std::pair<Key,T>(*get_key_leaf(_buf,i),LOAD_T(*get_val(_buf,i))));
-					}
-				}
-				return;
-			}
-		}
 	}
 	void getall(vector<std::pair<Key,T> > & vec)
 	{
 		if(Root==invalid_pos) return;
 		node p=LOAD_NODE(Head);
 		buffer _buf;
+		Key k2;
+		off_t To;
 		while(1)
 		{
 			LOAD_LEAF_BUF(_buf,p);
 			for(size_t i=0;i<p.cnt;i++)
-				vec.push_back(std::pair<Key,T>(*get_key_leaf(_buf,i),LOAD_T(*get_val(_buf,i))));
+			{
+				load_key(_buf,i,k2); load_val(_buf,i,To);
+				vec.push_back(std::pair<Key,T>(k2,LOAD_T(To)));
+			}
 			if(p.nxt==invalid_pos) break;
 			p=LOAD_NODE(p.nxt);
 		}
