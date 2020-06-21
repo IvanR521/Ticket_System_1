@@ -6,22 +6,22 @@
 //using namespace std;
 
 //Trains :: Trains(){}
-/*bool cmp_str(char *a, char *b){
+bool cmp_str(char *a, char *b){
 	int la = strlen(a), lb = strlen(b);
 	for(int i = 0; i < la && i < lb; i++)
 		if(a[i] != b[i]) return a[i] < b[i];
 	return la < lb;
-}*/
+}
 
 bool cmp_time(Ticket a, Ticket b){
 	if((a.arrivetime - a.departtime) != (b.arrivetime - b.departtime))
 		return (a.arrivetime - a.departtime) < (b.arrivetime - b.departtime);
-	return strcmp(a.train, b.train) < 0;
+	return cmp_str(a.train, b.train);
 }
 bool cmp_time1(Ticket a, Ticket b){
 	if(a.arrivetime != b.arrivetime)
 		return a.arrivetime < b.arrivetime;
-	return strcmp(a.train, b.train) < 0;
+	return cmp_str(a.train, b.train);
 }
 bool cmp_cost(Ticket a, Ticket b){
 	if(a.price != b.price) return a.price < b.price;
@@ -37,14 +37,20 @@ void Trains :: print_train(train t){
 	for(int i = 0; i < t.stationnum; i++)
 		cout << t.stations[i] << " ";
 	cout << endl;
-	for(int i = 0; i < t.stationnum - 1; i++)
-		cout << t.prices[i + 1] - t.prices[i] << " ";
+	//for(int i = 0; i < t.stationnum - 1; i++)
+	//	cout << t.prices[i + 1] - t.prices[i] << " ";
+	for(int i = 0; i < t.stationnum; i++)
+		cout << t.prices[i] << " ";
 	cout << endl;
 	cout << t.starttime << endl;
-	for(int i = 0; i < t.stationnum - 1; i++)
-		cout << t.traveltimes[i + 1] - t.traveltimes[i] << " ";
+	//for(int i = 0; i < t.stationnum - 1; i++)
+	//	cout << t.traveltimes[i + 1] - t.traveltimes[i] << " ";
+	for(int i = 0; i < t.stationnum; i++)
+		cout << t.traveltimes[i] << " ";
 	cout << endl;
-	for(int i = 1; i < t.stationnum - 1; i++)
+	//for(int i = 1; i < t.stationnum - 1; i++)
+	//	cout << t.stopovertimes[i] << " ";
+	for(int i = 0; i < t.stationnum; i++)
 		cout << t.stopovertimes[i] << " ";
 	cout << endl;
 	cout << t.begindate << " " << t.enddate << " " << t.type << " " << t.isreleased << endl;
@@ -169,6 +175,7 @@ void Trains :: query_ticket(const char* s, const char* t, Date d, const char* p/
 	Station station_s = bpstation.find(hash_s), station_t = bpstation.find(hash_t);
 	vector<Ticket> ticket_list;
 	int sz = station_s.traincnt;
+	//printf("%s -> %s %02d-%02d %s\n", s, t, d.month, d.day, p);
 	for(int i = 1; i <= sz; i++){
 		if(!bpstrain.exist(mp(hash_s, i))){puts("-1"); return ;}
 		if(!bptrain.exist(bpstrain.find(mp(hash_s, i)).first)){puts("-1"); return ;}
@@ -176,12 +183,27 @@ void Trains :: query_ticket(const char* s, const char* t, Date d, const char* p/
 		int pos = bpstrain.find(mp(hash_s, i)).second;
 		Time tim = Time(d, this_train.starttime.hour, this_train.starttime.minute)
 					+ this_train.traveltimes[pos] + this_train.stopovertimes[pos];
-		if(!bpseat.exist(Hash.hash(this_train.trainid))){puts("-1"); return ;}
+		tim.date = d;
+		Time timbe = tim - (this_train.traveltimes[pos] + this_train.stopovertimes[pos]);
+		if(this_train.enddate < timbe.date) continue;
+		if(timbe.date < this_train.begindate) continue;
+		/*printf("(%d-%02d-%02d) - %d = (%d-%02d-%02d)\n", 
+			tim.date.year, tim.date.month, tim.date.day,
+			this_train.traveltimes[pos] + this_train.stopovertimes[pos],
+			timbe.date.year, timbe.date.month, timbe.date.day);*/
+		int dd = timbe.date - this_train.begindate;
+		Seat rest = bpseat.find(Hash.hash(this_train.trainid));
+		//print_train(this_train);
+		//printf("dd == %d  pos == %d\n", dd, pos);
+		//if(dd < 0 || dd >= 95 || pos < 0 || pos >= 105){puts("-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1-1"); return ;}
+		int min_seat = rest.seat[dd][pos];
+
+		/*if(!bpseat.exist(Hash.hash(this_train.trainid))){puts("-1"); return ;}
 		Seat rest = bpseat.find(Hash.hash(this_train.trainid));
 		int dd = (d - (tim.date - d)) - this_train.begindate;
 		if(((d - (tim.date - d)) < this_train.begindate) || (this_train.enddate < (d - (tim.date - d)))) continue;
 		int min_seat = rest.seat[dd][pos];
-		tim.date = d;
+		tim.date = d;*/
 		for(int j = pos + 1; j < this_train.stationnum; j++){
 			if(Hash.hash(this_train.stations[j]) == hash_t){
 				Time timj = tim + (this_train.traveltimes[j] - (this_train.traveltimes[pos] + this_train.stopovertimes[pos]));

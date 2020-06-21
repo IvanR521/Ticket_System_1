@@ -26,7 +26,7 @@ public:
 				stationnum = _stationnum;
 				starttime = _starttime;
 				seatnum = _seatnum;
-				prices[0] = traveltimes[0] = stopovertimes[0] = stopovertimes[stationnum] = 0;
+				prices[0] = traveltimes[0] = stopovertimes[0] = stopovertimes[stationnum - 1] = 0;
 				for(int i = 0; i < stationnum; i++){
 					strcpy(stations[i], _stations[i]);
 					if(i > 0 && i + 1 < stationnum) stopovertimes[i] = _stopovertimes[i - 1];
