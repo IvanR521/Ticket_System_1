@@ -187,7 +187,7 @@ void Connector :: add_train(string str){
 	Date begindate = read_date(d.substr(0, 5));
 	Date enddate = read_date(d.substr(6, 5));
 
-	char stations[105][70];
+	char stations[105][35];
 	int prices[105], traveltimes[105], stopovertimes[105];
 
 	string *tmp = nullptr;
@@ -286,8 +286,8 @@ void Connector :: query_ticket(string str){
 		else if(argv[i] == "-d") d = read_date(argv[i + 1]);
 		else assert(0);
 	}
-	//cout << "s = " << s << " " << t << " " << d << " " << p << endl;
-	//cout << "l = " << s.length() << " " << t.length() << " " << p.length() << endl;
+//	cout << "s = " << s << " " << t << " " << d << " " << p << endl;
+//	cout << "l = " << s.length() << " " << t.length() << " " << p.length() << endl;
 	train_controller.query_ticket(s.c_str(), t.c_str(), d, p.c_str());
 	delete []argv;
 }

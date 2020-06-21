@@ -6,12 +6,26 @@
 //using namespace std;
 
 //Trains :: Trains(){}
+/*bool cmp_str(char *a, char *b){
+	int la = strlen(a), lb = strlen(b);
+	for(int i = 0; i < la && i < lb; i++)
+		if(a[i] != b[i]) return a[i] < b[i];
+	return la < lb;
+}*/
 
 bool cmp_time(Ticket a, Ticket b){
-	return (a.arrivetime - a.departtime) < (b.arrivetime - b.departtime);
+	if((a.arrivetime - a.departtime) != (b.arrivetime - b.departtime))
+		return (a.arrivetime - a.departtime) < (b.arrivetime - b.departtime);
+	return strcmp(a.train, b.train) < 0;
+}
+bool cmp_time1(Ticket a, Ticket b){
+	if(a.arrivetime != b.arrivetime)
+		return a.arrivetime < b.arrivetime;
+	return strcmp(a.train, b.train) < 0;
 }
 bool cmp_cost(Ticket a, Ticket b){
-	return a.price < b.price;
+	if(a.price != b.price) return a.price < b.price;
+	return strcmp(a.train, b.train) < 0;
 }
 
 void Trains :: print_station(Station s){
@@ -37,14 +51,14 @@ void Trains :: print_train(train t){
 }
 
 void Trains :: init(Connector *_connector){
-	bptrain.init("bptrain_file", "bptrain_disk", "bptrain_disk1");
-	bpseat.init("bpseat_file", "bpseat_disk", "bptseat_disk1");
-	bpstation.init("bpstation_file", "bpstation_disk", "bpstation_disk1");
-	bpstrain.init("bpstrain_file", "bpstrain_disk", "bpstrain_disk1");
+	bptrain.init("bptrain_file", "bptrain_disk");
+	bpseat.init("bpseat_file", "bpseat_disk");
+	bpstation.init("bpstation_file", "bpstation_disk");
+	bpstrain.init("bpstrain_file", "bpstrain_disk");
 }
 
 void Trains :: add_train(const char* _trainid, int _stationnum, int _seatnum, 
-			const char _stations[][70], const int *_prices, Time _starttime, 
+			const char _stations[][35], const int *_prices, Time _starttime, 
 			const int *_traveltimes, const int *_stopovertimes, 
 			Date _begindate, Date _enddate, const char _type){
 	pair<int, int> hash_t = Hash.hash(_trainid);
@@ -108,6 +122,42 @@ void Trains :: delete_train(const char* i){
 	bptrain.erase(hash_t);
 	puts("0"); return ;
 }
+void SORT1(vector<Ticket>&vec)
+{
+	int Sz=vec.size();
+	Ticket *tick=new Ticket[Sz];
+	for(int i=0;i<Sz;i++)
+		tick[i]=vec[i];
+	vec.clear();
+	sort(tick,tick+Sz,cmp_time);
+	for(int i=0;i<Sz;i++)
+		vec.push_back(tick[i]);
+	delete [] tick;
+}
+void SORT2(vector<Ticket>&vec)
+{
+	int Sz=vec.size();
+	Ticket *tick=new Ticket[Sz];
+	for(int i=0;i<Sz;i++)
+		tick[i]=vec[i];
+	vec.clear();
+	sort(tick,tick+Sz,cmp_cost);
+	for(int i=0;i<Sz;i++)
+		vec.push_back(tick[i]);
+	delete [] tick;
+}
+void SORT3(vector<Ticket>&vec)
+{
+	int Sz=vec.size();
+	Ticket *tick=new Ticket[Sz];
+	for(int i=0;i<Sz;i++)
+		tick[i]=vec[i];
+	vec.clear();
+	sort(tick,tick+Sz,cmp_time1);
+	for(int i=0;i<Sz;i++)
+		vec.push_back(tick[i]);
+	delete [] tick;
+}
 
 void Trains :: query_ticket(const char* s, const char* t, Date d, const char* p/*, int h = 0, int m = 0*/){
 	//puts("66666666");
@@ -143,8 +193,8 @@ void Trains :: query_ticket(const char* s, const char* t, Date d, const char* p/
 		}
 	}
 	if(p[0] == 't')
-		sort(ticket_list.begin(), ticket_list.end(), cmp_time);
-	else sort(ticket_list.begin(), ticket_list.end(), cmp_cost);
+		SORT1(ticket_list);
+	else SORT2(ticket_list);
 	sz = ticket_list.size();
 	printf("%d\n", sz);
 	for(int i = 0; i < sz; i++){
@@ -175,14 +225,16 @@ Ticket Trains :: get_ticket(const char* s, const char* t, Date d, const char* p,
 		int pos = bpstrain.find(mp(hash_s, i)).second;
 		Time tim = Time(d, this_train.starttime.hour, this_train.starttime.minute)
 					+ this_train.traveltimes[pos] + this_train.stopovertimes[pos];
-		if(this_train.enddate < (d - (tim.date - d))) continue;
-		int dd = (d - (tim.date - d)) - this_train.begindate;
-		if((d - (tim.date - d)) < this_train.begindate){
-			tim = Time(this_train.begindate, this_train.starttime.hour, this_train.starttime.minute)
-					+ this_train.traveltimes[pos] + this_train.stopovertimes[pos];
-			dd = 0;
-		}
-		else tim.date = d;
+		
+		tim.date = d;
+		if((tim.hour < h) || (tim.hour == h && tim.minute < m)) tim.date = tim.date + 1;
+		Time timbe = tim - (this_train.traveltimes[pos] + this_train.stopovertimes[pos]);
+		if(this_train.enddate < timbe.date) continue;
+		if(timbe.date < this_train.begindate)
+			timbe.date = this_train.begindate;
+		tim = timbe + this_train.traveltimes[pos] + this_train.stopovertimes[pos];
+
+		int dd = timbe.date - this_train.begindate;
 		Seat rest = bpseat.find(Hash.hash(this_train.trainid));
 		int min_seat = rest.seat[dd][pos];
 		for(int j = pos + 1; j < this_train.stationnum; j++){
@@ -195,8 +247,8 @@ Ticket Trains :: get_ticket(const char* s, const char* t, Date d, const char* p,
 		}
 	}
 	if(p[0] == 't')
-		sort(ticket_list.begin(), ticket_list.end(), cmp_time);
-	else sort(ticket_list.begin(), ticket_list.end(), cmp_cost);
+		SORT3(ticket_list);
+	else SORT2(ticket_list);
 	sz = ticket_list.size();
 	if(!sz) return exp;
 	return ticket_list[0];
@@ -227,15 +279,17 @@ void Trains :: query_transfer(const char* s, const char* t, Date d, const char* 
 				Time timj = tim + (this_train.traveltimes[j] - (this_train.traveltimes[pos] + this_train.stopovertimes[pos]));
 				ct1 = Ticket(this_train.trainid, s, this_train.stations[j], tim, timj, this_train.prices[j] - this_train.prices[pos], min_seat);
 				ct2 = get_ticket(this_train.stations[j], t, timj.date, p, this_train.trainid, timj.hour, timj.minute);
-				if(ct2.price == -1) continue;
+				if(ct2.price == -1) {if(rest.seat[dd][j] < min_seat) min_seat = rest.seat[dd][j];continue;}
 				if(p[0] == 't'){
-					if((ct2.arrivetime - ct1.departtime) < ans){
+					if(((ct2.arrivetime - ct1.departtime) < ans) || 
+						(((ct2.arrivetime - ct1.departtime) == ans) &&
+						(ct1.arrivetime - ct1.departtime < ft1.arrivetime - ft1.departtime))){
 						ft1 = ct1; ft2 = ct2; 
 						ans = ct2.arrivetime - ct1.departtime;
 					}
 				}
 				else{
-					if(ct1.price + ct2.price < ans){
+					if((ct1.price + ct2.price < ans) || ((ct1.price + ct2.price < ans) && (ct1.price < ft1.price))){
 						ft1 = ct1; ft2 = ct2;
 						ans = ct1.price + ct2.price;
 					}

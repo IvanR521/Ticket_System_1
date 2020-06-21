@@ -25,6 +25,31 @@ public:
 		cur.hour %= 24;
 		return cur;
 	}
+	Time operator - (const int x){
+		Time cur = *this;
+		cur.minute -= (x%60);
+		if(cur.minute<0)
+		{
+			cur.minute+=60;
+			cur.hour--;
+		}
+		cur.hour -= ((x/60)%24);
+		if(cur.hour<0)
+		{
+			cur.hour+=24;
+			cur.date=cur.date-1;
+		}
+		cur.date=cur.date-(x/1440);
+		return cur;
+	}
+	bool operator != (const Time & other) const{
+		if(date.year != other.date.year) return 1;
+		if(date.month != other.date.month) return 1;
+		if(date.day != other.date.day) return 1;
+		if(hour != other.hour) return 1;
+		if(minute != other.minute) return 1;
+		return 0;
+	}
 	bool operator < (const Time & other) const{
 		if(date < other.date) return 1;
 		if(other.date < date) return 0;

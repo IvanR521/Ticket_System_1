@@ -42,7 +42,7 @@ public:
 	void print_train(train t);
 
 	void add_train(const char* _trainid, int _stationnum, int _seatnum, 
-			const char _stations[][70], const int *_prices, Time _starttime, 
+			const char _stations[][35], const int *_prices, Time _starttime, 
 			const int *_traveltimes, const int *_stopovertimes, 
 			Date _begindate, Date _enddate, const char _type);
 

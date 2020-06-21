@@ -9,8 +9,8 @@ using namespace std;
 
 void Orders :: init(Connector *_connector){
 	connector = _connector;
-	bpuorder.init("bpuorder_file", "bpuorder_disk", "bpuorder_disk1");
-	bptorder.init("bptorder_file", "bptorder_disk", "bptorder_disk1");
+	bpuorder.init("bpuorder_file", "bpuorder_disk");
+	bptorder.init("bptorder_file", "bptorder_disk");
 }
 
 void Orders :: buy_ticket(const char *u, const char *i, Date d, int n, const char *f, const char *t, const char *q){

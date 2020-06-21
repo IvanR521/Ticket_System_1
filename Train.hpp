@@ -9,7 +9,7 @@ class train{
 public:
 	char trainid[25];
 	int stationnum;
-	char stations[105][70];
+	char stations[105][35];
 	int seatnum, prices[105];
 	Time starttime;
 	int traveltimes[105], stopovertimes[105];
@@ -18,7 +18,7 @@ public:
 	bool isreleased;
 	train(){}
 	train(const char* _trainid, int _stationnum, int _seatnum, 
-			const char _stations[][70], const int _prices[], Time _starttime, 
+			const char _stations[][35], const int _prices[], Time _starttime, 
 			const int _traveltimes[], const int _stopovertimes[], 
 			Date _begindate, Date _enddate, const char _type){
 

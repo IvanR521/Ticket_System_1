@@ -1,5 +1,4 @@
-#include "disk_manager.hpp"
-#include <vector>
+#include "vector.hpp"
 #include <functional>
 #include <iostream>
 #include <assert.h>
@@ -16,19 +15,22 @@ public:
 	struct node;
 	typedef char buffer[ndsize-sizeof(node)];
 	typedef char* _buffer;
-	//
-	//bool FLAG=false;
-	//
+	static const off_t invalid_pos=0xdeadbeef;
 	const size_t order;
 	const size_t entry;
 	char *fname;
 	FILE *file,*Tdata;
-	char *Dname;
-	disk_manager DISK;
 	off_t Root,Head,Tail;
 	Compare cmp=Compare();
 	int sz;
+	off_t fend;
 	inline bool EQUAL(const Key &A,const Key &B){return !cmp(A,B)&&!cmp(B,A);}
+	off_t get_pos()
+	{
+		off_t Pos=fend;
+		fend+=ndsize;
+		return Pos;
+	}
 	
 // CONSTRUCTION------------------------------------------------------------------------------------
 
@@ -46,14 +48,6 @@ public:
 			key=Key();
 		}
 	};
-	inline void SAVE()
-	{
-		fseek(file,sizeof(int),SEEK_SET);
-		fwrite(&Root,sizeof(off_t),1,file);
-		fwrite(&Head,sizeof(off_t),1,file);
-		fwrite(&Tail,sizeof(off_t),1,file);
-		fflush(file);
-	}
 	inline void SAVE_NODE(const node &p)
 	{
 		fseek(file,p.self,SEEK_SET);
@@ -146,36 +140,10 @@ public:
 		}
 		return ans;
 	}
-	/*void PRINT(node p)
-	{
-		buffer buf1; LOAD_LEAF_BUF(buf1,p);
-			std::cout<<"leafshit:"<<p.self<<"-->"<<p.key<<"  ";
-			for(int i=0;i<p.cnt;i++)
-				std::cout<<*get_key_leaf(buf1,i)<<"->"<<*get_val(buf1,i)<<" ";
-			std::cout<<"\n";
-	}
-	void PRINT2(node p)
-	{
-		buffer buf1; LOAD_NLEAF_BUF(buf1,p);
-			std::cout<<"nodeshit:"<<p.self<<"-->"<<p.key<<"  ";
-			for(int i=0;i<p.cnt;i++)
-				std::cout<<*get_key_nleaf(buf1,i)<<"->"<<*get_to(buf1,i)<<" ";
-		std::cout<<"\n";
-	}*/
 	node leaf_split(_buffer _buf,node &p)
 	{
 		size_t S1=(p.cnt>>1),S2=p.cnt-S1;
-		/*if(FLAG)
-		{
-			std::cout<<"leafshit:";
-			for(int i=0;i<p.cnt;i++)
-				std::cout<<*get_key_leaf(_buf,i)<<"->"<<*get_val(_buf,i)<<" ";
-			std::cout<<"\n";
-		}
-		if(FLAG) std::cout<<"Leafshit\n";*/
-		node p2(DISK.get_pos(),1,p.self,p.nxt);
-		assert((p2.self-3*sizeof(off_t)-sizeof(int))%ndsize==0&&p2.self>=3*sizeof(off_t)+sizeof(int));
-	//	if(FLAG) std::cout<<"HAHAHA"<<p2.self<<"\n";
+		node p2(get_pos(),1,p.self,p.nxt);
 		p.cnt=S1;
 		p2.cnt=S2;
 		p.key=*get_key_leaf(_buf,S1-1);
@@ -184,7 +152,6 @@ public:
 		if(p2.nxt==invalid_pos)
 		{
 			Tail=p2.self;
-			SAVE();
 		}
 		else{
 			node Nxt=LOAD_NODE(p2.nxt);
@@ -195,20 +162,12 @@ public:
 		SAVE_LEAF_BUF(_buf,p);
 		SAVE_NODE(p2);
 		SAVE_LEAF_BUF(_buf+(sizeof(Key)+sizeof(off_t))*S1,p2);
-		//std::cout<<"leafshit:";
-		/*if(FLAG)
-		{
-			PRINT(p);
-			PRINT(p2);
-		}*/
 		return p2;
 	}
 	node nleaf_split(_buffer _buf,node &p)
 	{
-		//if(FLAG) std::cout<<"Nodeshit\n";
 		size_t S1=(p.cnt>>1),S2=p.cnt-S1;
-		node p2(DISK.get_pos(),0);
-		assert((p2.self-3*sizeof(off_t)-sizeof(int))%ndsize==0&&p2.self>=3*sizeof(off_t)+sizeof(int));
+		node p2(get_pos(),0);
 		p.cnt=S1;
 		p2.cnt=S2;
 		p.key=*get_key_nleaf(_buf,S1-1);
@@ -221,7 +180,6 @@ public:
 	}
 	node insert_leaf(_buffer _buf,node &p,const Key &key,const off_t &Val)
 	{
-		//if(FLAG) PRINT2(p);
 		size_t k=kth_leaf(_buf,p,key);
 		for(size_t i=p.cnt;i>k;i--)
 		{
@@ -234,7 +192,6 @@ public:
 		if(k==p.cnt-1) p.key=key;
 		if(p.cnt==entry)
 		{
-			//if(FLAG) std::cout<<"leaf\n";
 			node p2=leaf_split(_buf,p);
 			return p2;
 		}
@@ -270,15 +227,11 @@ public:
 	{
 		if(p.tp==1)
 		{
-			//if(FLAG) std::cout<<p.self<<"leaf\n";
-			//if(FLAG) PRINT(p);
 			buffer buf;
 			LOAD_LEAF_BUF(buf,p);
 			return insert_leaf(buf,p,key,Val);
 		}
 		else{
-			//if(FLAG) std::cout<<p.self<<"node\n";
-			//if(FLAG) PRINT2(p);
 			buffer buf;
 			LOAD_NLEAF_BUF(buf,p);
 			int k=kth_nleaf(buf,p,key);
@@ -304,12 +257,10 @@ public:
 	{
 		if(Root==invalid_pos)
 		{
-			node root(DISK.get_pos(),1);
-			assert((root.self-3*sizeof(off_t)-sizeof(int))%ndsize==0&&root.self>=3*sizeof(off_t)+sizeof(int));
+			node root(get_pos(),1);
 			buffer _buf;
 			insert_leaf(_buf,root,key,Val);
 			Head=Tail=Root=root.self;
-			SAVE();
 			SAVE_LEAF_BUF(_buf,root);
 		}
 		else{
@@ -317,10 +268,8 @@ public:
 			node p=dfs_insert(root,key,Val);
 			if(p.self==Root) SAVE_NODE(p);
 			else{
-				node rt2(DISK.get_pos(),0);
-				assert((rt2.self-3*sizeof(off_t)-sizeof(int))%ndsize==0&&rt2.self>=3*sizeof(off_t)+sizeof(int));
+				node rt2(get_pos(),0);
 				Root=rt2.self;
-				SAVE();
 				rt2.key=p.key;
 				rt2.cnt=2;
 				SAVE_NODE(rt2);
@@ -338,7 +287,6 @@ public:
 
 	void leaf_erase(_buffer _buf,node &p,size_t k)
 	{
-		//if(FLAG) PRINT(p);
 		if(k==p.cnt-1) p.key=*get_key_leaf(_buf,p.cnt-2);
 		for(int i=k;i<p.cnt;i++)
 		{
@@ -348,18 +296,13 @@ public:
 		p.cnt--;
 		SAVE_NODE(p);
 		SAVE_LEAF_BUF(_buf,p);
-		//if(FLAG) PRINT(p);
 	}
 	void merge_leaf(node &p,node &p2)
 	{
-		//if(FLAG) PRINT(p);
-		//if(FLAG) PRINT(p2);
 		p.nxt=p2.nxt;
-		DISK.put_pos(p2.self);
 		if(p2.nxt==invalid_pos)
 		{
 			Tail=p.self;
-			SAVE();
 		}
 		else{
 			node Nxt=LOAD_NODE(p2.nxt);
@@ -374,11 +317,9 @@ public:
 		p.cnt+=p2.cnt;
 		p.key=p2.key;
 		SAVE_NODE(p);
-		//if(FLAG) PRINT(p);
 	}
 	void merge_nleaf(node &p,node &p2)
 	{
-		DISK.put_pos(p2.self);
 		buffer _buf;
 		LOAD_LEAF_BUF(_buf,p2);
 		fseek(file,p.self+sizeof(node)+(sizeof(Key)+sizeof(off_t))*p.cnt,SEEK_SET);
@@ -392,12 +333,6 @@ public:
 	{
 		if(left.cnt>entry/2)
 		{
-			//if(FLAG) std::cout<<"op1"<<"\n";
-			/*if(FLAG)
-			{
-				PRINT(left);
-				PRINT(p);
-			}*/
 			p.cnt++;
 			buffer lbuf;
 			LOAD_LEAF_BUF(lbuf,left);
@@ -409,11 +344,6 @@ public:
 			left.cnt--;
 			left.key=*get_key_leaf(lbuf,left.cnt-1);
 			SAVE_NODE(left);
-			/*if(FLAG)
-			{
-				PRINT(left);
-				PRINT(p);
-			}*/
 			return -1;
 		}
 		else{
@@ -425,7 +355,6 @@ public:
 	{
 		if(right.cnt>entry/2)
 		{
-			//if(FLAG) std::cout<<"op2"<<"\n";
 			p.cnt++;
 			buffer rbuf;
 			LOAD_LEAF_BUF(rbuf,right);
@@ -442,7 +371,6 @@ public:
 		}
 		else{
 			merge_leaf(p,right);
-			//std::cout<<p.key<<endl;
 			return 2;
 		}
 	}
@@ -450,13 +378,6 @@ public:
 	{
 		if(left.cnt>order/2)
 		{
-			/*if(FLAG)
-			{
-				std::cout<<"LOOK!\n";
-				PRINT2(left);
-				PRINT2(p);
-				std::cout<<"\n";
-			}*/
 			p.cnt++;
 			buffer lbuf;
 			LOAD_NLEAF_BUF(lbuf,left);
@@ -468,16 +389,9 @@ public:
 			left.cnt--;
 			left.key=*get_key_nleaf(lbuf,left.cnt-1);
 			SAVE_NODE(left);
-			/*if(FLAG)
-			{
-				PRINT2(left);
-				PRINT2(p);
-				std::cout<<"\n";
-			}*/
 			return -1;
 		}
 		else{
-			//if(FLAG) std::cout<<"op4\n";
 			merge_nleaf(left,p);
 			return -2;
 		}
@@ -509,33 +423,13 @@ public:
 	{
 		if(p.tp==1)
 		{
-			//if(FLAG) std::cout<<"leaf"<<p.self<<" "<<p.cnt<<"\n";
-			//if(FLAG) std::cout<<"node-> "<<p.self<<" "<<p.key<<'\n';
-			//if(FLAG) PRINT(p);
 			buffer _buf; LOAD_LEAF_BUF(_buf,p);
 			size_t k=kth_leaf(_buf,p,key);
-			/*if(FLAG)
-			{
-				std::cout<<"\n"<<k<<" "<<p.cnt<<"\n";
-				for(int i=0;i<p.cnt;i++)
-					std::cout<<*get_key_leaf(_buf,i)<<" ";
-				std::cout<<"fuck\n";
-			}*/
 			if(!EQUAL(*get_key_leaf(_buf,k),key)) return -5;
 			leaf_erase(_buf,p,k);
-			//if(FLAG) PRINT(p);
-			/*if(FLAG)
-			{
-				std::cout<<"\n"<<k<<" "<<p.cnt<<"\n";
-				for(int i=0;i<p.cnt;i++)
-					std::cout<<*get_key_leaf(_buf,i)<<" ";
-				std::cout<<"fuck\n";
-			}*/
 			if(!p.cnt&&p.self==Root)
 			{
-				DISK.put_pos(p.self);
 				Root=Head=Tail=invalid_pos;
-				SAVE();
 				return 0;
 			}
 			else if(p.cnt>=(entry/2)||p.self==Root) return 0;
@@ -556,25 +450,19 @@ public:
 			}
 		}
 		else{
-			//if(FLAG) std::cout<<"node-> "<<p.self<<" "<<p.key<<'\n';
-			//if(FLAG) PRINT2(p);
 			buffer _buf; LOAD_NLEAF_BUF(_buf,p);
 			size_t k=kth_nleaf(_buf,p,key);
 			off_t to0=*get_to(_buf,k);
 			off_t to1=(k==0?invalid_pos:*get_to(_buf,k-1)),
 			to2=(k==p.cnt-1?invalid_pos:*get_to(_buf,k+1));
 			node t0=LOAD_NODE(to0);
-			//if(FLAG) std::cout<<t0.self<<"\n";
 			int flag=dfs_erase(t0,key,to1,to2);
-			//if(FLAG) std::cout<<flag<<" "<<t0.self<<"\n";
-			//if(FLAG) std::cout<<flag<<" GAM\n";
 			if(flag==-5) return -5;
 			else if(flag==-1)
 			{
 				node t1=LOAD_NODE(to1);
 				if(EQUAL(key,p.key))
 				{
-					//if(FLAG) PRINT2(p)
 					p.key=t0.key;
 					SAVE_NODE(p);
 				}
@@ -596,7 +484,6 @@ public:
 			{
 				if(EQUAL(key,p.key))
 				{
-					//if(FLAG) std::cout<<"GAM\n";
 					p.key=t0.key;
 					SAVE_NODE(p);
 				}
@@ -607,8 +494,6 @@ public:
 			}
 			else if(flag==-2)
 			{
-				//if(FLAG) std::cout<<"HERE\n";
-				//if(FLAG) PRINT2(p);
 				node t1=LOAD_NODE(to1);
 				if(EQUAL(key,p.key)) p.key=t1.key;
 				p.cnt--;
@@ -618,12 +503,9 @@ public:
 				fwrite(&t1.self,sizeof(off_t),1,file);
 				fwrite(_buf+(sizeof(Key)+sizeof(off_t))*(k+1),(sizeof(Key)+sizeof(off_t))*(p.cnt-k),1,file);
 				fflush(file);
-				//if(FLAG) PRINT2(p);
 			}
 			else if(flag==2)
 			{
-				//if(FLAG) std::cout<<t0.key<<"\n";
-				//if(FLAG) std::cout<<p.key<<" "<<*get_key_nleaf(_buf,p.cnt-1)<<"\n";
 				p.cnt--;
 				SAVE_NODE(p);
 				fseek(file,p.self+sizeof(node)+(sizeof(Key)+sizeof(off_t))*k,SEEK_SET);
@@ -633,19 +515,9 @@ public:
 				fflush(file);
 			}
 			LOAD_NLEAF_BUF(_buf,p);
-			//if(FLAG) std::cout<<p.key<<" "<<*get_key_nleaf(_buf,p.cnt-1)<<"\n";
-			/*if(FLAG)
-			{
-				std::cout<<"info: "<<p.self<<"->";
-				for(int i=0;i<p.cnt;i++)
-					std::cout<<*get_key_nleaf(_buf,i)<<" ";
-				std::cout<<"\n";
-			}*/
 			if(p.self==Root&&p.cnt==1)
 			{
 				Root=*get_to(_buf,0);
-				DISK.put_pos(p.self);
-				SAVE();
 				return 0;
 			}
 			if(p.cnt>=order/2||p.self==Root) return 0;
@@ -671,67 +543,32 @@ public:
 		if(Root==invalid_pos) return;
 		node root=LOAD_NODE(Root);
 		if(cmp(root.key,key)) return;
-		int flag=dfs_erase(root,key,invalid_pos,invalid_pos);
+		dfs_erase(root,key,invalid_pos,invalid_pos);
 	}
-	/*int dfs_debug(node p)
-	{
-		buffer buf;
-		if(!p.tp)
-		{
-			LOAD_NLEAF_BUF(buf,p);
-			if(!EQUAL(*get_key_nleaf(buf,p.cnt-1),p.key)) return -1;
-			for(int i=1;i<p.cnt;i++)
-				if(!cmp(*get_key_nleaf(buf,i-1),*get_key_nleaf(buf,i)))
-				{
-					return -1;
-				}
-			for(int i=0;i<p.cnt;i++)
-				if(dfs_debug(LOAD_NODE(*get_to(buf,i)))==-1) return -1;
-			return 0;
-		}
-		else{
-			LOAD_LEAF_BUF(buf,p);
-			if(!EQUAL(*get_key_leaf(buf,p.cnt-1),p.key)) return -1;
-			for(int i=1;i<p.cnt;i++)
-				if(!cmp(*get_key_leaf(buf,i-1),*get_key_leaf(buf,i)))
-				{
-					return -1;
-				}
-			return 0;
-		}
-	}*/
-	
-//public:
 	Bplustree():
 		order((ndsize-sizeof(node))/(sizeof(Key)+sizeof(off_t))),
 		entry((ndsize-sizeof(node))/(sizeof(Key)+sizeof(off_t)))
-		//order(30),
-		//entry(30)
 	{
 		sz=0;
 		fname=NULL;
-		Dname=NULL;
 		Tdata=NULL;
 		file=NULL;
 	}
-	Bplustree(const char *filename,const char *diskname,const char *dataname):
+	Bplustree(const char *filename,const char *dataname):
 		order((ndsize-sizeof(node))/(sizeof(Key)+sizeof(off_t))),
 		entry((ndsize-sizeof(node))/(sizeof(Key)+sizeof(off_t)))
-		//order(30),
-		//entry(30)
 	{
 		fname=new char[strlen(filename)+1];
 		strcpy(fname,filename);
-		Dname=new char[strlen(diskname)+1];
-		strcpy(Dname,diskname);
-		DISK.init(Dname);
 		file=fopen(fname,"rb+");
 		if(!file)
 		{
 			file=fopen(fname,"wb+");
+			fend=sizeof(int)+4*sizeof(off_t);
 			sz=0;
 			Head=Tail=Root=invalid_pos;
 			fseek(file,0,SEEK_SET);
+			fwrite(&fend,sizeof(off_t),1,file);
 			fwrite(&sz,sizeof(int),1,file);
 			fwrite(&Root,sizeof(off_t),1,file);
 			fwrite(&Head,sizeof(off_t),1,file);
@@ -740,6 +577,7 @@ public:
 		}
 		else{
 			fseek(file,0,SEEK_SET);
+			fread(&fend,sizeof(off_t),1,file);
 			fread(&sz,sizeof(int),1,file);
 			fread(&Root,sizeof(off_t),1,file);
 			fread(&Head,sizeof(off_t),1,file);
@@ -751,27 +589,30 @@ public:
 	~Bplustree()
 	{
 		fseek(file,0,SEEK_SET);
+		fwrite(&fend,sizeof(off_t),1,file);
 		fwrite(&sz,sizeof(int),1,file);
+		fwrite(&Root,sizeof(off_t),1,file);
+		fwrite(&Head,sizeof(off_t),1,file);
+		fwrite(&Tail,sizeof(off_t),1,file);
+		fflush(file);
 		fflush(file);
 		if(fname!=NULL) delete [] fname;
-		if(Dname!=NULL) delete [] Dname;
 		if(file) fclose(file);
 		if(Tdata) fclose(Tdata);
 	}
-	void init(const char *filename,const char *diskname,const char *dataname)
+	void init(const char *filename,const char *dataname)
 	{
 		fname=new char[strlen(filename)+1];
 		strcpy(fname,filename);
-		Dname=new char[strlen(diskname)+1];
-		strcpy(Dname,diskname);
-		DISK.init(Dname);
 		file=fopen(fname,"rb+");
 		if(!file)
 		{
 			file=fopen(fname,"wb+");
+			fend=sizeof(int)+4*sizeof(off_t);
 			sz=0;
 			Head=Tail=Root=invalid_pos;
 			fseek(file,0,SEEK_SET);
+			fwrite(&fend,sizeof(off_t),1,file);
 			fwrite(&sz,sizeof(int),1,file);
 			fwrite(&Root,sizeof(off_t),1,file);
 			fwrite(&Head,sizeof(off_t),1,file);
@@ -780,6 +621,7 @@ public:
 		}
 		else{
 			fseek(file,0,SEEK_SET);
+			fread(&fend,sizeof(off_t),1,file);
 			fread(&sz,sizeof(int),1,file);
 			fread(&Root,sizeof(off_t),1,file);
 			fread(&Head,sizeof(off_t),1,file);
@@ -794,15 +636,16 @@ public:
 	}
 	void clear()
 	{
+		fend=sizeof(int)+4*sizeof(off_t);
 		sz=0;
 		Head=Tail=Root=invalid_pos;
 		fseek(file,0,SEEK_SET);
+		fwrite(&fend,sizeof(off_t),1,file);
 		fwrite(&sz,sizeof(int),1,file);
 		fwrite(&Root,sizeof(off_t),1,file);
 		fwrite(&Head,sizeof(off_t),1,file);
 		fwrite(&Tail,sizeof(off_t),1,file);
 		fflush(file);
-		DISK.clear();
 	}
 	bool empty()
 	{
@@ -817,26 +660,7 @@ public:
 	}
 	void erase(const Key &key)
 	{
-		//if(FLAG) std::cout<<key<<"\n";
-		/*if(FLAG)
-		{
-			node p=LOAD_NODE(Root);
-			buffer _buf; LOAD_NLEAF_BUF(_buf,p);
-			std::cout<<"info: "<<p.self<<"->";
-				for(int i=0;i<p.cnt;i++)
-					std::cout<<*get_key_nleaf(_buf,i)<<" ";
-				std::cout<<"\n";
-		}*/
 		final_erase(key);
-		/*if(FLAG)
-		{
-			node p=LOAD_NODE(Root);
-			buffer _buf; LOAD_NLEAF_BUF(_buf,p);
-			std::cout<<"info: "<<p.self<<"->";
-				for(int i=0;i<p.cnt;i++)
-					std::cout<<*get_key_nleaf(_buf,i)<<" ";
-				std::cout<<"\n";
-		}*/
 	}
 	bool exist(const Key &key)
 	{
@@ -844,17 +668,14 @@ public:
 		node p=LOAD_NODE(Root);
 		if(cmp(p.key,key)) return false;
 		buffer _buf; int k;
-		//if(FLAG) std::cout<<" START: "<<key<<"  ";
 		while(!p.tp)
 		{
 			LOAD_NLEAF_BUF(_buf,p);
 			k=kth_nleaf(_buf,p,key);
-			//if(FLAG) std::cout<<p.self<<"->"<<k<<" ";
 			p=LOAD_NODE(*get_to(_buf,k));
 		}
 		LOAD_LEAF_BUF(_buf,p);
 		k=kth_leaf(_buf,p,key);
-		//if(FLAG) std::cout<<p.self<<"->"<<k<<"    \n";
 		return EQUAL(*get_key_leaf(_buf,k),key);
 	}
 	T find(const Key &key)
@@ -913,7 +734,7 @@ public:
 		}
 		else return false;
 	}
-	void traverse(std::vector<std::pair<Key,T> >&vec,const Key l,const Key r)
+	void traverse(vector<std::pair<Key,T> >&vec,const Key l,const Key r)
 	{
 		if(Root==invalid_pos) return;
 		node p=LOAD_NODE(Root);
@@ -966,7 +787,7 @@ public:
 			}
 		}
 	}
-	void getall(std::vector<std::pair<Key,T> > & vec)
+	void getall(vector<std::pair<Key,T> > & vec)
 	{
 		if(Root==invalid_pos) return;
 		node p=LOAD_NODE(Head);
@@ -980,20 +801,6 @@ public:
 			p=LOAD_NODE(p.nxt);
 		}
 	}
-	/*void F()
-	{
-		FLAG^=1;
-	}*/
-	/*int DEBUG()
-	{
-		int flag=0;
-		if(Root!=invalid_pos)
-		{
-			flag=dfs_debug(LOAD_NODE(Root));
-			if(flag==-1) std::cout<<"ERRRRRRRRRRRRRRRRRRRRRRRR\n";
-		}
-		return flag;
-	}*/
 };
 
 #endif

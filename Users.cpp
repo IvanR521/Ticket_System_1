@@ -6,7 +6,7 @@ using namespace std;
 //Users :: Users(){}
 
 void Users :: init(Connector *_connector){
-	bpuser.init("bpuser_file", "bpuser_disk", "bpuser_disk1");
+	bpuser.init("bpuser_file", "bpuser_disk");
 }
 
 void Users :: print_user(user _user){

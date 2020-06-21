@@ -9,7 +9,7 @@ using namespace std;
 
 class Ticket{
 public:
-	char train[25], station_s[70], station_t[70];
+	char train[25], station_s[35], station_t[35];
 	Time departtime, arrivetime;
 	int price, seat;
 	Ticket(){}

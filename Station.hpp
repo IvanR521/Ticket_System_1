@@ -8,7 +8,7 @@ using namespace std;
 
 class Station{
 public:
-	char stationname[70];
+	char stationname[35];
 	int traincnt;
 	Station(){traincnt = 0;}
 	Station(const char * _stationname){
