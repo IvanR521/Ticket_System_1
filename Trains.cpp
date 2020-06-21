@@ -110,7 +110,7 @@ void Trains :: delete_train(const char* i){
 }
 
 void Trains :: query_ticket(const char* s, const char* t, Date d, const char* p/*, int h = 0, int m = 0*/){
-	puts("66666666");
+	//puts("66666666");
 	pair<int, int> hash_s = Hash.hash(s), hash_t = Hash.hash(t);
 	if(!bpstation.exist(hash_s)) {puts("0"); return ;}
 	if(!bpstation.exist(hash_t)) {puts("0"); return ;}
@@ -158,17 +158,19 @@ void Trains :: query_ticket(const char* s, const char* t, Date d, const char* p/
 	return ;
 }
 
-Ticket Trains :: get_ticket(const char* s, const char* t, Date d, const char* p, int h, int m){
+Ticket Trains :: get_ticket(const char* s, const char* t, Date d, const char* p, const char *ii, int h, int m){
 	Ticket exp; exp.price = -1;
-	pair<int, int> hash_s = Hash.hash(s), hash_t = Hash.hash(t);
+	pair<int, int> hash_s = Hash.hash(s), hash_t = Hash.hash(t), hash_i = Hash.hash(ii);
 	if(!bpstation.exist(hash_s)) return exp;
 	if(!bpstation.exist(hash_t)) return exp;
+	if(!bptrain.exist(hash_i)) return exp;
 	if(hash_s == hash_t)return exp;
 	if(strcmp(p, "time") && strcmp(p, "cost")) return exp;
 	Station station_s = bpstation.find(hash_s), station_t = bpstation.find(hash_t);
 	vector<Ticket> ticket_list;
 	int sz = station_s.traincnt;
 	for(int i = 1; i <= sz; i++){
+		if(bpstrain.find(mp(hash_s, i)).first == hash_i) continue;
 		train this_train = bptrain.find(bpstrain.find(mp(hash_s, i)).first);
 		int pos = bpstrain.find(mp(hash_s, i)).second;
 		Time tim = Time(d, this_train.starttime.hour, this_train.starttime.minute)
@@ -224,7 +226,7 @@ void Trains :: query_transfer(const char* s, const char* t, Date d, const char* 
 			if(Hash.hash(this_train.stations[j]) != hash_t){
 				Time timj = tim + (this_train.traveltimes[j] - (this_train.traveltimes[pos] + this_train.stopovertimes[pos]));
 				ct1 = Ticket(this_train.trainid, s, this_train.stations[j], tim, timj, this_train.prices[j] - this_train.prices[pos], min_seat);
-				ct2 = get_ticket(this_train.stations[j], t, timj.date, p, timj.hour, timj.minute);
+				ct2 = get_ticket(this_train.stations[j], t, timj.date, p, this_train.trainid, timj.hour, timj.minute);
 				if(ct2.price == -1) continue;
 				if(p[0] == 't'){
 					if((ct2.arrivetime - ct1.departtime) < ans){

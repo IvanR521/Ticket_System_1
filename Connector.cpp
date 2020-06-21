@@ -286,8 +286,8 @@ void Connector :: query_ticket(string str){
 		else if(argv[i] == "-d") d = read_date(argv[i + 1]);
 		else assert(0);
 	}
-	cout << "s = " << s << " " << t << " " << d << " " << p << endl;
-	cout << "l = " << s.length() << " " << t.length() << " " << p.length() << endl;
+	//cout << "s = " << s << " " << t << " " << d << " " << p << endl;
+	//cout << "l = " << s.length() << " " << t.length() << " " << p.length() << endl;
 	train_controller.query_ticket(s.c_str(), t.c_str(), d, p.c_str());
 	delete []argv;
 }

@@ -54,7 +54,7 @@ public:
 
 	void query_ticket(const char* s, const char* t, Date d, const char* p/*, int h = 0, int m = 0*/);
 
-	Ticket get_ticket(const char* s, const char* t, Date d, const char* p, int h = 0, int m = 0);
+	Ticket get_ticket(const char* s, const char* t, Date d, const char* p, const char *ii, int h = 0, int m = 0);
 
 	void query_transfer(const char* s, const char* t, Date d, const char* p);
 
